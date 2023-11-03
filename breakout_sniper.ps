@@ -1,0 +1,22 @@
+//@version=5
+strategy("Breakout Sniper", overlay=true)
+lookback_period = input.int(365, "Lookback Period", minval=1)
+hold = input.int(30, 'Holding Period', minval=1)
+
+highest_high = ta.highest(high, lookback_period)
+lowest_low = ta.lowest(low, lookback_period)
+
+plot(highest_high, 'HIGH', color=#CC000088)
+plot(lowest_low, 'HIGH', color=#00CC0088)
+
+breakout = high >= highest_high
+breakdown = low <= lowest_low
+
+if (breakout)
+    strategy.entry("Long", strategy.long)
+if ta.barssince(breakout) > hold
+    strategy.close("Long", comment="close long")
+if (breakdown)
+    strategy.entry("Short", strategy.short)
+if ta.barssince(breakdown) > hold
+    strategy.close("Short", comment="close short")

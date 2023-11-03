@@ -1,0 +1,21 @@
+//@version=5
+strategy("Price Channels", overlay=true)
+fairvalue = input.int(21, 'Exponential Moving Average', minval=1)
+hold = input.int(30, 'Holding Period', minval=1)
+mult = input.float(2, 'Multiplier', minval=0.1, step = 0.1)
+atr = ta.atr(14)
+ma = ta.ema(close, fairvalue)
+
+resistance = ma + (atr * mult)
+support = ma - (atr * mult)
+
+plot(ma, 'Average', color=#AAAAAA88)
+plot(support, 'Support', color=#00DD0088)
+plot(resistance, 'Resistance', color=#DD000088)
+
+if ta.crossover(close, support)
+    strategy.entry("Long", strategy.long)
+if ta.barssince(ta.crossover(close, support)) > hold
+    strategy.close("Long", comment="close 30 days")
+if ta.crossover(close, resistance)
+    strategy.close("Long", comment="close overvalued")

@@ -1,0 +1,64 @@
+//@version=5
+indicator("Gaussian Process Regression", shorttitle="GPR", overlay = true, max_lines_count = 300)
+lookback_period = input.int(100, 'Lookback Period', minval=0)
+prediction_horizon = input.int(30, 'Prediction Horizon', minval=0)
+length_scale = input.float(10., 'Length Scale', minval=1)
+noise_variance = input.float(0.1, step = 0.01, minval = 0)
+
+radial_basis_function(x1, x2, scale) => math.exp(-math.pow(x1 - x2, 2) / (2.0 * math.pow(scale, 2)))
+
+// Create a kernel matrix using the Radial Basis Function
+create_kernel_matrix(training_set, test_set, scale) =>
+    kernel_matrix = matrix.new<float>(training_set.size(), test_set.size())
+    row_index = 0
+    for train_point in training_set
+        col_index = 0
+        for test_point in test_set
+            kernel_value = radial_basis_function(train_point, test_point, scale)
+            kernel_matrix.set(row_index, col_index, kernel_value)
+            col_index += 1
+        row_index += 1
+    kernel_matrix
+
+var identity_matrix = matrix.new<int>(lookback_period, lookback_period, 0)
+var matrix<float> prediction_kernel = na
+
+// Set up initial training and test indices, noise matrix & compute the prediction kernel
+if barstate.isfirst
+    training_indices = array.new<int>(0)
+    test_indices = array.new<int>(0)
+    for i = 0 to lookback_period-1
+        for j = 0 to lookback_period-1
+            identity_matrix.set(i, j, i == j ? 1 : 0)
+        training_indices.push(i)
+    for i = 0 to lookback_period+prediction_horizon-1
+        test_indices.push(i)
+    noise_matrix = identity_matrix.mult(noise_variance * noise_variance)
+    training_kernel = create_kernel_matrix(training_indices, training_indices, length_scale).sum(noise_matrix)
+    training_kernel_inv = training_kernel.pinv()
+    cross_kernel = create_kernel_matrix(training_indices, test_indices, length_scale)
+    prediction_kernel := cross_kernel.transpose().mult(training_kernel_inv)
+
+// Prepare the training outputs by subtracting the moving average from the close price.
+current_index = bar_index
+moving_average = ta.sma(close, lookback_period)
+training_outputs = array.new<float>(0)
+for i = 0 to lookback_period-1
+    training_outputs.unshift(close[i] - moving_average)
+predicted_means = prediction_kernel.mult(training_outputs)
+
+// Loop through the predicted means to determine regression and forecast points
+index_offset = -lookback_period+2
+regression_points = array.new<chart.point>(0)
+forecast_points = array.new<chart.point>(0)
+for predicted_mean in predicted_means
+    if index_offset == 1
+        forecast_points.push(chart.point.from_index(current_index+index_offset, predicted_mean + moving_average))
+        regression_points.push(chart.point.from_index(current_index+index_offset, predicted_mean + moving_average))
+    else if index_offset > 1
+        forecast_points.push(chart.point.from_index(current_index+index_offset, predicted_mean + moving_average))
+    else
+        regression_points.push(chart.point.from_index(current_index+index_offset, predicted_mean + moving_average))
+    index_offset += 1
+polyline.delete(polyline.new(regression_points, line_color = #FF00FF88, line_width = 10)[1])
+polyline.delete(polyline.new(forecast_points, line_color = #FFFF0088, line_width = 10)[1])

@@ -1,0 +1,15 @@
+//@version=5
+indicator("Fear and Greed Index", shorttitle="FGI", overlay=true)
+extreme_fear = input.int(-40, "Extreme Fear")
+extreme_greed = input.int(100, "Extreme Greed")
+rsi = ta.rsi(close, 14)
+fair_value = ta.ema(close, 14)
+fv_indicator = (close / fair_value)
+vol_high = ta.highest(volume, 90)
+vol_low = ta.lowest(volume, 90)
+vol_indicator = 1 + (volume / ((vol_high + vol_low) / 2))
+stdev = ta.stdev(close, 14)
+stdev_indicator = 1 + (stdev / close)
+fgi = (rsi - 50) * fv_indicator * vol_indicator * stdev_indicator
+bgcolor(fgi <= extreme_fear ? color.new(color.red, 90) : na)
+bgcolor(fgi >= extreme_greed ? color.new(color.lime, 90) : na)
