@@ -1,4 +1,4 @@
-//@version=5
+//@version=6
 indicator("Simple Moving Average", shorttitle="SMA", overlay=true)
 length = input.int(200, minval=1, title="Length")
 smaValue = ta.sma(close, length)
